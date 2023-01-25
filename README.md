@@ -19,6 +19,10 @@ Dhall: Dhall's biggest strength is that it is strongly typed and self-validating
 
 Jsonnet: Jsonnet wins in terms of pure simplicity. It looks like json with functions, reads like json with functions and provides a quick and easy way to just write parametrized json without getting into the way too much. Unfortunately, simplicity comes at a cost. Its untyped nature means that anything that can produce valid json will happily be spit out by the compiler. Worse even, passing untyped state like maps and arrays or even nested versions of these around in the configurations makes refactoring very tedious and dangerous. Making simple changes can make the whole manifest generation blow up with hard-to-diagnose errors. I actually decided to rewrite everything in dhall when I wanted to keep working on the jsonnet version of this project and couldn't instantly decipher the code and the state being passed around in it when trying to make changes. Generating lists of objects based on arrays or maps was also made easy due to the language's support for list comprehensions.
 
+## Keynote
+
+I gave a keynote on this project at work and included the slides in this repo, they are in the `slides.pdf` file and they are in French.
+
 ---
 
 ## Goals:
