@@ -1,0 +1,144 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sample-function-app
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sample-function-app
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sample-function-app
+    spec:
+      containers:
+        - envFrom:
+            - secretRef:
+                name: azure-key-vault-app-secrets-1
+            - configMapRef:
+                name: sample-function-app-config
+          image: myregistry.azurecr.io/samples/dotnet:exampleTag
+          name: sample-function-app
+          ports:
+            - containerPort: 80
+              name: http
+          volumeMounts:
+            - mountPath: /mnt/azure-key-vault-app-secrets-1
+              name: azure-key-vault-app-secrets-1
+              readOnly: true
+        - image: mcr.microsoft.com/dotnet/monitor:6.1.1
+          name: dotnet-monitor
+      nodeSelector:
+        kubernetes.azure.com/agentpool: default
+      volumes:
+        - csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: azure-key-vault-app-secrets-1
+          name: azure-key-vault-app-secrets-1
+---
+apiVersion: v1
+data:
+  EventHub__ConsumerGroup: something-consumer-group
+  EventHub__Name: something
+  ServiceBus__SubscriptionName: sbts-something-dev-01
+  ServiceBus__TopicName: sbt-something-dev-01
+kind: ConfigMap
+metadata:
+  name: sample-function-app-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sample-function-app
+spec:
+  ports:
+    - name: http
+      port: 80
+      protocol: TCP
+      targetPort: http
+  selector:
+    app.kubernetes.io/name: sample-function-app
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  name: sample-function-app
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: www.example.com
+      http:
+        paths:
+          - backend:
+              service:
+                name: sample-function-app
+                port:
+                  name: http
+            pathType: Prefix
+    - host: www2.example.com
+      http:
+        paths:
+          - backend:
+              service:
+                name: sample-function-app
+                port:
+                  name: http
+            pathType: Prefix
+  tls:
+    - hosts:
+        - www.example.com
+        - www2.example.com
+      secretName: sample-function-app-tls-certificate
+---
+apiVersion: secrets-store.csi.x-k8s.io/v1
+kind: SecretProviderClass
+metadata:
+  name: azure-key-vault-app-secrets-1
+spec:
+  parameters:
+    keyvaultName: app-secrets-1
+    objects: |
+      array:
+        - |
+          objectName: "event-hub-connection-string"
+          objectAlias: "EventHub__ConnectionString"
+          objectType: "secret"
+          objectVersion: ""
+        - |
+          objectName: "service-bus-connection-string"
+          objectAlias: "ServiceBus__ConnectionString"
+          objectType: "secret"
+          objectVersion: ""
+        - |
+          objectName: "webjobs-storage-account-connection-string"
+          objectAlias: "AzureWebJobsStorage"
+          objectType: "secret"
+          objectVersion: ""
+        - |
+          objectName: "webjobs-storage-account-connection-string"
+          objectAlias: "AzureWebJobsDashboard"
+          objectType: "secret"
+          objectVersion: ""
+    tenantId: "5dda54da-ba38-4375-88f8-6420cab22451"
+    usePodIdentity: 'false'
+    useVMManagedIdentity: 'false'
+    userAssignedIdentityID: ''
+  provider: azure
+  secretObjects:
+    - data:
+        - key: EventHub__ConnectionString
+          objectName: event-hub-connection-string
+        - key: ServiceBus__ConnectionString
+          objectName: service-bus-connection-string
+        - key: AzureWebJobsStorage
+          objectName: webjobs-storage-account-connection-string
+        - key: AzureWebJobsDashboard
+          objectName: webjobs-storage-account-connection-string
+      secretName: azure-key-vault-app-secrets-1
+      type: Opaque
